@@ -14,7 +14,7 @@ act=pat2.findall(c)[0]
 act=act.replace('amp;','')
 act='http://bbs.icnkr.com/'+act
 para=urllib.urlencode({'username':'1960772215',
-			'password':'521394551',
+			'password':'******',
 			'formhash':formhash,
 			'referer':'http://bbs.icnkr.com/./',
 			'questionid':0,
