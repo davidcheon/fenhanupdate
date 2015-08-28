@@ -48,7 +48,7 @@ def autosend(url_request,post_base,opener,username,password,typeid,subject,messa
 		pat5=re.compile(r'name="uid" value="(.*?)"')
 		uid=pat5.findall(content)[0]
 		data=urllib.urlencode({'posttime':'1440649853',
-		'typeid':typeid,
+		'typeid':'%s'%typeid,
 		'subject':subject,
 		'formhash':formhash2,
 		'message':message,
@@ -58,6 +58,7 @@ def autosend(url_request,post_base,opener,username,password,typeid,subject,messa
 		'type':'image',})
 		req2=urllib2.Request(pub_url,data)
 		res2=opener.open(req2)
+		print res2.read()
 		if res2.getcode()==200:
 			print '%s send succeed'%username
 			opener.close()
@@ -82,15 +83,15 @@ if __name__=='__main__':
 
 	url_request='http://bbs.icnkr.com/member.php?mod=logging&action=login&mobile=yes'
 	post_base='http://bbs.icnkr.com/forum.php?mod=post&action=newthread&fid=137&mobile=yes'
-	users=['testuser']
-	passwords=['12345testuser']
-	messages=['发表帖子']
-	subjects=['发表帖子']
+	users=['testuser','1960772215']
+	passwords=['12345testuser','521394551']
+	messages=['发表帖子1','发表帖子2','我想要找工作']
+	subjects=['发表帖子1','发表帖子2','求职男']
 	for n in xrange(1):
 		cj=cookielib.CookieJar()
 		opener=urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
 		index=random.randint(0,len(users)-1)
 		typeid=random.randint(193,291)
-		
-		autosend(url_request,post_base,opener,users[0],passwords[0],typeid,subjects[index],messages[index])
+		sindex=random.randint(0,len(messages)-1)
+		autosend(url_request,post_base,opener,users[1],passwords[1],typeid,subjects[sindex],messages[sindex])
 		time.sleep(10)
