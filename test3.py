@@ -113,7 +113,7 @@ if __name__=='__main__':
 	url_request=get_request_url(base_url,headers)
 	#post_base='http://bbs.icnkr.com/forum.php?mod=post&action=newthread&fid=137&mobile=yes'
 	users=['testuser','1960772215']
-	passwords=['12345testuser','521394551']
+	passwords=['******','*****']
 	messages=['发表帖子1','发表帖子2','我想要找工作']
 	subjects=['发表帖子1','发表帖子2','求职男']
 
