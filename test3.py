@@ -2,6 +2,9 @@
 #!_*_ coding:utf-8 _*_
 import urllib,urllib2,cookielib,re
 import random,time
+import sys
+reload(sys)
+sys.setdefaultencoding('utf8')
 #cj=cookielib.CookieJar()
 #opener=urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
 #urllib2.install_opener(opener)
