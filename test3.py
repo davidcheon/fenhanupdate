@@ -56,15 +56,25 @@ def autosend(url_request,opener,username,password,typeid,subject,message,headers
 		
 		req2=urllib2.Request(pub_url,data)
 		res2=opener.open(req2)
-		#print res2.read()
-		if res2.getcode()==200:
-			result='%s send succeed'%str(username)
+		mes=checkpat.findall(res2.read())
+		if mes!=[]:
+			mes=str(mes[0])
+			result='%s'%mes
 			opener.close()
 			return result
 		else:
-			return 'send failed'
+			result='%s send succeed'%username
+			opener.close()
+			return result
+		#print res2.read()
+		#if res2.getcode()==200:
+		#	result='%s'%str(mes)
+		#	opener.close()
+		#	return result
+		#opener.close()
 	else:
 		result='%s login failed:%s'%(str(username),str(mes))
+		opener.close()
 		return result
 	
 #source=['shanghai','beijing','tianjin','nanjing','guangzhou']

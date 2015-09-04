@@ -13,7 +13,7 @@ class mygui(wx.Frame):
 		self.item=None
 		self.headers=headers
 		self.tmp=img.ConvertToBitmap()
-		self.SetSizeHintsSz((500,400),(500,400))
+		self.SetSizeHintsSz((400,600),(400,600))
 		panel=wx.Panel(self)
 		self.panel=panel
 		self.sitename_label=wx.StaticText(panel,label='website')
@@ -22,6 +22,10 @@ class mygui(wx.Frame):
 		self.username=wx.TextCtrl(panel)
 		self.password_label=wx.StaticText(panel,label='password')
 		self.password=wx.TextCtrl(panel,style=wx.TE_PASSWORD)
+		self.loginbutton=wx.Button(panel,label='login')
+		self.loginbutton.Bind(wx.EVT_BUTTON,self.loginaction)
+		self.exitbutton=wx.Button(panel,label='exit')
+		self.exitbutton.Bind(wx.EVT_BUTTON,self.exitaction)
 		self.bankuai=['招聘求职','交友频道-친구','美丽人生|婚姻|育儿']
 		self.bankuai_label=wx.StaticText(panel,label='bankuai:')
 		self.bankuai_choice=wx.ComboBox(panel,-1,"Default Value",(15,30),wx.DefaultSize,self.bankuai,wx.CB_DROPDOWN)
@@ -37,6 +41,15 @@ class mygui(wx.Frame):
 		self.sendbutton=wx.BitmapButton(panel,id=-1,bitmap=self.tmp,name='send',size=(250,50),style=0)
 		self.sendbutton.SetDefault()
 		self.sendbutton.Bind(wx.EVT_BUTTON,self.sendaction)
+		self.sendbutton.Disable()
+		self.tiezilist=wx.ListBox(panel,26,size=(150,100),pos=wx.DefaultPosition,choices=['a','b','c'],style=wx.LB_SINGLE)
+		self.tiezilist.Bind(wx.EVT_LISTBOX,self.tieziselection)
+		self.tiezicontent=wx.TextCtrl(panel,style=wx.TE_MULTILINE|wx.VSCROLL|wx.HSCROLL)
+		self.tiezireply=wx.TextCtrl(panel,style=wx.TE_MULTILINE|wx.VSCROLL)
+		self.tiezideletebutton=wx.Button(panel,label='delete')
+		self.tiezideletebutton.Bind(wx.EVT_BUTTON,self.deletetiezi)
+		self.tiezireplybutton=wx.Button(panel,label='send')
+		self.tiezireplybutton.Bind(wx.EVT_BUTTON,self.sendreply)
 		self.hbox1=wx.BoxSizer()
 		self.hbox1.Add(self.sitename_label,proportion=1,flag=wx.EXPAND|wx.ALL,border=0)
 		self.hbox1.Add(self.sitename,proportion=7,flag=wx.EXPAND|wx.ALL,border=0)
@@ -60,35 +73,69 @@ class mygui(wx.Frame):
 		self.hbox7=wx.BoxSizer()
 		self.tmp=img.ConvertToBitmap()
 		self.hbox7.Add(self.sendbutton,proportion=5,flag=wx.EXPAND|wx.ALL,border=0)
+		self.hbox8=wx.BoxSizer()
+		self.tiezilist_label=wx.StaticText(panel,label='tiezis')
+		self.hbox8.Add(self.tiezilist_label,proportion=1)
+		self.hbox8.Add(self.tiezilist,proportion=5,flag=wx.EXPAND|wx.ALL,border=0)
+		self.hbox9=wx.BoxSizer()
+		self.tiezicontent_label=wx.StaticText(panel,label='content')
+		self.hbox9.Add(self.tiezicontent_label,proportion=1)
+		self.hbox9.Add(self.tiezicontent,proportion=5,flag=wx.EXPAND|wx.ALL,border=0)
+		self.hbox10=wx.BoxSizer()
+		self.tiezireply_label=wx.StaticText(panel,label='reply')
+		self.hbox10.Add(self.tiezireply_label,proportion=1)
+		self.hbox10.Add(self.tiezireply,proportion=5,flag=wx.EXPAND|wx.ALL,border=0)
+		self.hbox11=wx.BoxSizer()
+		self.hbox11.Add(self.tiezideletebutton)
+		self.hbox11.Add(self.tiezireplybutton)
 		self.vbox1=wx.BoxSizer(wx.VERTICAL)
 		self.vbox1.Add(self.hbox1,border=5)
 		self.vbox1.Add(self.hbox2,border=5)
 		self.vbox1.Add(self.hbox3,border=5)
+		self.hboxext1=wx.BoxSizer()
+		self.hboxext1.Add(self.loginbutton,proportion=1,border=0)
+		self.hboxext1.Add(self.exitbutton,proportion=1,border=0)
+		self.vbox1.Add(self.hboxext1,border=5)
 		self.vbox1.Add(self.hbox4,border=5)
 		self.vbox1.Add(self.hbox5,border=5)
 		self.vbox1.Add(self.hbox6,proportion=1,border=5)
 		self.vbox1.Add(self.hbox7,border=5)
+		self.vbox1.Add(self.hbox8,border=5)
+		self.vbox1.Add(self.hbox9,border=5)
+		self.vbox1.Add(self.hbox10,border=5)
+		self.vbox1.Add(self.hbox11,border=5)
 		panel.SetSizer(self.vbox1)
+		Publisher().subscribe(self.updatedisplay,"update")
 		
 		#wx.StaticBitmap(parent=panel,bitmap=self.tmp)
+	def tieziselection(self,evt):
+		pass
+	def deletetiezi(self,evt):
+		pass
+	def sendreply(self,evt):
+		pass
+	def loginaction(self,evt):
+		pass
+	def exitaction(self,evt):
+		self.Destroy()
 	def selectbankuai(self,evt):
 		self.item=evt.GetSelection()
 		self.diyu_choice.Clear()
 		if self.item==0:
-			test=[f for f in xrange(192,209)]
-			test.append(291)
+#			test=[f for f in xrange(192,209)]
+#			test.append(291)
 			self.values=['其他','首尔','仁川','釜山','大邱','大田','光州','京畿','忠北','忠南','全北','全南','江原','庆北','庆南','济州','蔚山','经验分享']
 		elif self.item==1:
-			test=[f for f in xrange(50,57)]
-			test.append(646)
+#			test=[f for f in xrange(50,57)]
+#			test.append(646)
 			self.values=['韩国聚会','其他相关','老乡交流','交朋结友','聚会总结','非诚勿扰','兴趣小组','晒照片大赛']
 		elif self.item==2:
-			test=[f for f in xrange(57,62)]
-			test.append(277)
+#			test=[f for f in xrange(57,62)]
+#			test.append(277)
 			self.values=['其他相关','婚姻相关','孕儿育儿','妈妈卖场','幸福生活照','婆媳关系']
 		self.diyu_choice.AppendItems(self.values)
 		self.diyu_choice.SetSelection(0)
-		Publisher().subscribe(self.updatedisplay,"update")
+#		Publisher().subscribe(self.updatedisplay,"update")
 	def selectdiyu(self,evt):
 		self.diyuitem=evt.GetSelection()
 	def sendaction(self,evt):
