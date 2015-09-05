@@ -8,16 +8,25 @@ sys.setdefaultencoding('utf8')
 #cj=cookielib.CookieJar()
 #opener=urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
 #urllib2.install_opener(opener)
-def autosend(url_request,opener,username,password,typeid,subject,message,headers,home_url,bankuaimingzi):
-	c=urllib2.urlopen(url_request).read()
-	pat1=re.compile(r'name="formhash".*value=\'(.*?)\'')
-	formhash=pat1.findall(c)[0]
-	pat2=re.compile(r'action="(.*?)" ')
-	act=pat2.findall(c)[0]
-	act=act.replace('amp;','')
-	act='http://bbs.icnkr.com/'+act
-	para=urllib.urlencode({'username':username,
-			'password':password,
+class connector(object):
+	def __init__(self,opener,headers,home_url):
+		self.opener=opener
+		self.headers=headers
+		self.loginstatus=False
+		self.home_url=home_url
+	def login(self,username,password):
+		self.username=username
+		self.password=password
+		login_url=self.get_request_url()
+		c=urllib2.urlopen(login_url).read()
+		pat1=re.compile(r'name="formhash".*value=\'(.*?)\'')
+		formhash=pat1.findall(c)[0]
+		pat2=re.compile(r'action="(.*?)" ')
+		act=pat2.findall(c)[0]
+		act=act.replace('amp;','')
+		act='http://bbs.icnkr.com/'+act
+		para=urllib.urlencode({'username':self.username,
+			'password':self.password,
 			'formhash':formhash,
 			'referer':'http://bbs.icnkr.com/forum.php?mobile=1',
 			'questionid':0,
@@ -25,84 +34,77 @@ def autosend(url_request,opener,username,password,typeid,subject,message,headers
 			'questionid':'0',
 			'submit':'登录',
 			'fastloginfield':'username',})
-
-
-
-#	headers={'User-Agent':'Mozilla/5.0 (Linux; U; Android 3.0; en-us; Xoom Build/HRI39) AppleWebKit/534.13 (KHTML, like Gecko) Version/4.0 Safari/534.13',
-#	'Content-Type':'multipart/form-data',
-#	'Cache-Control':'no-cache',
-#	'Connection':'keep-alive',
-#	'Accept':'*/*',}
-	req=urllib2.Request(act,para)
-	reap=opener.open(req)
-	checkpat=re.compile('messagetext.*\n<p>(.*?)</p>')
-	
-	mes=str(checkpat.findall(reap.read())[0])
-	if mes.startswith('欢迎'):
-		post_base=get_post_url(home_url,headers,opener,bankuaimingzi)
-		result=opener.open(post_base)
-		content=result.read()
-		pat3=re.compile('action="(.*?)"')
-		pub_url='http://bbs.icnkr.com/'+pat3.findall(content)[0].replace('amp;','')
-		pat3=re.compile(r'name="formhash".*value="(.*?)"')
-		formhash2=pat3.findall(content)[0]
-		pat4=re.compile(r'name="hash" value="(.*?)"')
-		hashcode=pat4.findall(content)[0]
-		pat5=re.compile(r'name="uid" value="(.*?)"')
-		uid=pat5.findall(content)[0]
-#		print urllib.urlencode({'posttime':'1440649853','typeid':typeid,'subject':subject,'formhash':formhash2,'message':message,'topicsubmit':'发表帖子','uid':uid,'hash':hashcode,'type':'image'})
+		req=urllib2.Request(act,para)
+		reap=self.opener.open(req)
+		checkpat=re.compile('messagetext.*\n<p>(.*?)</p>')
 		
-		data=urllib.urlencode({'posttime':r'1440649853','typeid':r'%s'%typeid,'subject':r'%s'%subject,'formhash':r'%s'%formhash2,'message':r'%s'%message,'topicsubmit':r'发表帖子','uid':r'%s'%uid,'hash':r'%s'%hashcode,'type':r'image'})
-		
-		req2=urllib2.Request(pub_url,data)
-		res2=opener.open(req2)
-		mes=checkpat.findall(res2.read())
-		if mes!=[]:
-			mes=str(mes[0])
-			result='%s'%mes
-			opener.close()
-			return result
+		mes=str(checkpat.findall(reap.read())[0])
+		if mes.startswith('欢迎'):
+			self.loginstatus=True
+			return (True,mes)
 		else:
-			result='%s send succeed'%username
-			opener.close()
+
+			return (False,mes)
+	def sendnewtiezi(self,typeid,subject,message,bankuaimingzi):
+		if self.loginstatus:
+			self.typeid=typeid
+			self.subject=subject
+			self.message=message
+			self.bankuaimingzi=bankuaimingzi
+			post_base=self.get_post_url(self.home_url,self.headers,self.opener,self.bankuaimingzi)
+			result=self.opener.open(post_base)
+			content=result.read()
+			pat3=re.compile('action="(.*?)"')
+			pub_url='http://bbs.icnkr.com/'+pat3.findall(content)[0].replace('amp;','')
+			pat3=re.compile(r'name="formhash".*value="(.*?)"')
+			formhash2=pat3.findall(content)[0]
+			pat4=re.compile(r'name="hash" value="(.*?)"')
+			hashcode=pat4.findall(content)[0]
+			pat5=re.compile(r'name="uid" value="(.*?)"')
+			uid=pat5.findall(content)[0]
+			
+			data=urllib.urlencode({'posttime':r'1440649853','typeid':r'%s'%self.typeid,'subject':r'%s'%self.subject,'formhash':r'%s'%formhash2,'message':r'%s'%self.message,'topicsubmit':r'发表帖子','uid':r'%s'%uid,'hash':r'%s'%hashcode,'type':r'image'})
+			
+			req2=urllib2.Request(pub_url,data)
+			res2=self.opener.open(req2)
+			checkpat=re.compile('messagetext.*\n<p>(.*?)</p>')
+			mes=checkpat.findall(res2.read())
+			if mes!=[]:
+				mes=str(mes[0])
+				result='%s'%mes
+				self.opener.close()
+				return result
+			else:
+				result='%s send succeed'%self.username
+				self.opener.close()
+				return result
+			#print res2.read()
+		else:
+			result='%s login failed:%s'%(str(self.username),str(mes))
+			self.opener.close()
 			return result
-		#print res2.read()
-		#if res2.getcode()==200:
-		#	result='%s'%str(mes)
-		#	opener.close()
-		#	return result
-		#opener.close()
-	else:
-		result='%s login failed:%s'%(str(username),str(mes))
+
+	def get_request_url(self):
+		opener=urllib2.build_opener()
+		req=urllib2.Request(self.home_url,headers=self.headers)
+		content=opener.open(req).read()
+		pat=re.compile(r'<a\s*href="(.*?)"\s*title="登录"')
+		url=self.home_url[:self.home_url.find('com/')+len('com/')]+pat.findall(content)[0].replace('amp;','')
 		opener.close()
-		return result
+		return url
+	def get_post_url(self,url,headers,opener,bankuaimingzi):
+		req=urllib2.Request(url,headers=headers)
+		content=opener.open(req).read()
+		st='<a\s*href="(.*?)"\s*>%s'%bankuaimingzi
+		pat=re.compile(st)
+		url=url[:url.find('com/')+len('com/')]+pat.findall(content)[0].replace('amp;','')
+		req=urllib2.Request(url,headers=headers)
+		content=opener.open(req).read()
+		
+		pat2=re.compile(r'<a\s*href="(.*?)"\s*title="发帖"')
+		url=url[:url.find('com/')+len('com/')]+pat2.findall(content)[0].replace('amp;','')
 	
-#source=['shanghai','beijing','tianjin','nanjing','guangzhou']
-#for n in xrange(5):
-def get_request_url(entry_url,headers):
-	opener=urllib2.build_opener()
-	req=urllib2.Request(entry_url,headers=headers)
-	content=opener.open(req).read()
-	pat=re.compile(r'<a\s*href="(.*?)"\s*title="登录"')
-	url=entry_url[:entry_url.find('com/')+len('com/')]+pat.findall(content)[0].replace('amp;','')
-	opener.close()
-	return url
-def get_post_url(url,headers,opener,bankuaimingzi):
-	req=urllib2.Request(url,headers=headers)
-	content=opener.open(req).read()
-	st='<a\s*href="(.*?)"\s*>%s'%bankuaimingzi
-	pat=re.compile(st)
-	url=url[:url.find('com/')+len('com/')]+pat.findall(content)[0].replace('amp;','')
-	req=urllib2.Request(url,headers=headers)
-	content=opener.open(req).read()
-	
-	pat2=re.compile(r'<a\s*href="(.*?)"\s*title="发帖"')
-	url=url[:url.find('com/')+len('com/')]+pat2.findall(content)[0].replace('amp;','')
-	#req=urllib2.Request(url,headers=headers)
-	#content=opener.open(req).read()
-	#pat3=re.compile(r'<form(.*?)\naction="(.*?)"')
-	#url=url[:url.find('com/')+len('com/')]+pat3.findall(content)[0][1].replace('amp;','')
-	return url
+		return url
 if __name__=='__main__':
 	#choice=source[random.randint(0,len(source)-1)]
 	#data['subject']='this is a test from %s'%choice

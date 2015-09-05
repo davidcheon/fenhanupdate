@@ -48,8 +48,10 @@ class mygui(wx.Frame):
 		self.tiezireply=wx.TextCtrl(panel,style=wx.TE_MULTILINE|wx.VSCROLL)
 		self.tiezideletebutton=wx.Button(panel,label='delete')
 		self.tiezideletebutton.Bind(wx.EVT_BUTTON,self.deletetiezi)
+		self.tiezideletebutton.Disable()
 		self.tiezireplybutton=wx.Button(panel,label='send')
 		self.tiezireplybutton.Bind(wx.EVT_BUTTON,self.sendreply)
+		self.tiezireplybutton.Disable()
 		self.hbox1=wx.BoxSizer()
 		self.hbox1.Add(self.sitename_label,proportion=1,flag=wx.EXPAND|wx.ALL,border=0)
 		self.hbox1.Add(self.sitename,proportion=7,flag=wx.EXPAND|wx.ALL,border=0)
@@ -105,8 +107,11 @@ class mygui(wx.Frame):
 		self.vbox1.Add(self.hbox10,border=5)
 		self.vbox1.Add(self.hbox11,border=5)
 		panel.SetSizer(self.vbox1)
-		Publisher().subscribe(self.updatedisplay,"update")
-		
+		cj=cookielib.CookieJar()
+		opener=urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
+		self.connector=test3.connector(opener=opener,headers=headers,home_url=self.sitename.GetValue())
+		Publisher().subscribe(self.sendnewtieziresultdisplay,"sendnewtiezi")
+		Publisher().subscribe(self.loginresultdisplay,'login result')
 		#wx.StaticBitmap(parent=panel,bitmap=self.tmp)
 	def tieziselection(self,evt):
 		pass
@@ -115,7 +120,17 @@ class mygui(wx.Frame):
 	def sendreply(self,evt):
 		pass
 	def loginaction(self,evt):
-		pass
+		username=self.username.GetValue()
+		password=self.password.GetValue()
+		if username==''or password=='':
+			dlg=wx.MessageDialog(self.panel,'please fill username or password',caption='Message',style=wx.OK)
+			dlg.ShowModal()
+			dlg.Destroy()
+		lt=loginthread(self.connector,username,password)
+		lt.setDaemon(True)
+		lt.start()
+		self.loginbt=evt.GetEventObject()
+		self.loginbt.Disable()
 	def exitaction(self,evt):
 		self.Destroy()
 	def selectbankuai(self,evt):
@@ -139,14 +154,13 @@ class mygui(wx.Frame):
 	def selectdiyu(self,evt):
 		self.diyuitem=evt.GetSelection()
 	def sendaction(self,evt):
-		username=self.username.GetValue()
-		password=self.password.GetValue()
+		
 		subject=self.subject.GetValue()
 		sitename=self.sitename.GetValue()
 		content=self.content.GetValue()
 		bankuai_choice=self.bankuai_choice.GetSelection()
 		diyu_choice=self.diyu_choice.GetSelection()
-		if username=='' or password=='' or sitename=='' or content=='' or subject=='' or bankuai_choice<0 or diyu_choice<0:
+		if sitename=='' or content=='' or subject=='' or bankuai_choice<0 or diyu_choice<0:
 			dlg=wx.MessageDialog(self.panel,'please fill input',caption='Message',style=wx.OK)
 			dlg.ShowModal()
 			dlg.Destroy()
@@ -164,44 +178,53 @@ class mygui(wx.Frame):
 			self.bankuainame=self.bankuai[self.item]
 			self.diyuname=test[self.diyu_choice.GetSelection()]
 			
-			req_url=test3.get_request_url(sitename,self.headers)
-			cj=cookielib.CookieJar()
-			opener=urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
+			
 			#test3.autosend(req_url,opener,username,password,self.diyuname,subject,content,self.headers,
 #sitename,self.bankuainame)
-			t=mythread(req_url,opener,username,password,self.diyuname,subject,content,self.headers,
-sitename,self.bankuainame,self.panel)
+			t=sendnewtiezithread(self.connector,self.diyuname,subject,content,self.bankuainame)
 			t.setDaemon(True)
 			t.start()
 			self.btn=evt.GetEventObject()
 			self.btn.Disable()
 			#t.join()
-	def updatedisplay(self,msg):
-		dlg=wx.MessageDialog(self.panel,msg.data,caption='Message',style=wx.OK)
-		if dlg.ShowModal()==wx.ID_OK:
-			self.btn.Enable()
+	def loginresultdisplay(self,msg):
+		dlg=wx.MessageDialog(self.panel,str(msg.data[1]),caption='login result',style=wx.OK)
+		dlg.ShowModal()
 		dlg.Destroy()
-		
-class mythread(threading.Thread):
-	def __init__(self,req_url,opener,username,password,diyuname,subject,content,headers,
-sitename,bankuainame,panel):
+		self.loginbt.Enable()
+		if msg.data[0]:
+			self.sendbutton.Enable()
+			self.tiezireplybutton.Enable()
+			self.tiezideletebutton.Enable()
+	def sendnewtieziresultdisplay(self,msg):
+		dlg=wx.MessageDialog(self.panel,msg.data,caption='Message',style=wx.OK)
+		dlg.ShowModal()
+		self.btn.Enable()
+		dlg.Destroy()
+class loginthread(threading.Thread)	:
+	def __init__(self,connector,username,password):
 		threading.Thread.__init__(self)
-		self.panel=panel
-		self.req_url=req_url
-		self.opener=opener
+		self.connector=connector
 		self.username=username
 		self.password=password
+	def run(self):
+		result=self.connector.login(self.username,self.password)
+		wx.CallAfter(self.postdata,result)		
+	def postdata(self,result):
+		Publisher.sendMessage(topic='login result',data=result)
+class sendnewtiezithread(threading.Thread):
+	def __init__(self,connector,diyuname,subject,content,bankuainame):
+		threading.Thread.__init__(self)
+		self.connector=connector
 		self.diyuname=diyuname
 		self.subject=subject
 		self.content=content
-		self.sitename=sitename
 		self.bankuainame=bankuainame
-		self.headers=headers
 	def run(self):
-		result=test3.autosend(self.req_url,self.opener,self.username,self.password,self.diyuname,self.subject,self.content,self.headers,self.sitename,self.bankuainame)
+		result=self.connector.sendnewtiezi(self.diyuname,self.subject,self.content,self.bankuainame)
 		wx.CallAfter(self.postdata,result)
 	def postdata(self,msg):
-		Publisher().sendMessage(topic='update',data=msg)
+		Publisher().sendMessage(topic='sendnewtiezi',data=msg)
 if __name__=='__main__':
 	app=wx.App()
 	headers={'User-Agent':'Mozilla/5.0 (Linux; U; Android 3.0; en-us; Xoom Build/HRI39) AppleWebKit/534.13 (KHTML, like Gecko) Version/4.0 Safari/534.13',
