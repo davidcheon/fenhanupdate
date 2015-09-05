@@ -45,6 +45,30 @@ class connector(object):
 		else:
 
 			return (False,mes)
+	def gettiezicontent(self,url):
+		req=urllib2.Request(url,headers=self.headers)
+		content=self.opener.open(req).read()
+		pat=re.compile(r'id="thread_subject"\s*>([^<>]+?)</a>')
+		title=pat.findall(content)[0]
+		pat2=re.compile(r'class="bm_user">(?:[.\s\S]+?target="_blank"\s*>)([^<]+?)</a>(?:[.\s\S]+?)class="xs0 xg1">([^<]+)(?:[.\s\S]+?)class="postmessage"\s*>([.\s\S]+?)</div>')
+		result={}
+		result['title']=title
+		result['content']=pat2.findall(content)
+		return result
+	def getmytiezilist(self):
+		mytiezi_url=self.get_mytiezi_url()
+		req=urllib2.Request(mytiezi_url,headers=self.headers)
+		content=self.opener.open(req).read()
+		pat=re.compile(r'class="bm_c">\n\s*<a\s*href="(.*?)"\s*target="_blank"\s*>(.*?)</a>\n(?:.*?)class="xg1">([^<>]+)</span>')
+		pats= pat.findall(content)
+		self.mytiezilist=[]
+		for p in pats:
+			tiezi=[]
+			tiezi.append(self.home_url[:self.home_url.find('com/')+len('com/')]+p[0].replace('amp;',''))
+			tiezi.append(str(p[1]))
+			tiezi.append(str(p[2]))
+			self.mytiezilist.append(tiezi)
+		return self.mytiezilist
 	def sendnewtiezi(self,typeid,subject,message,bankuaimingzi):
 		if self.loginstatus:
 			self.typeid=typeid
@@ -73,17 +97,21 @@ class connector(object):
 				mes=str(mes[0])
 				result='%s'%mes
 				self.opener.close()
-				return result
+				return [False,result]
 			else:
 				result='%s send succeed'%self.username
 				self.opener.close()
-				return result
+				return [True,result,res2.geturl()]
 			#print res2.read()
-		else:
-			result='%s login failed:%s'%(str(self.username),str(mes))
-			self.opener.close()
-			return result
-
+#		else:
+#			result='%s login first'%str(self.username)
+#			return result
+	def get_mytiezi_url(self):
+		req=urllib2.Request(self.home_url,headers=self.headers)
+		content=self.opener.open(req).read()
+		pat=re.compile(r'<a\s*href="([^"]+)">我的帖子')
+		url=self.home_url[:self.home_url.find('com/')+len('com/')]+pat.findall(content)[0].replace('amp;','')
+		return url
 	def get_request_url(self):
 		opener=urllib2.build_opener()
 		req=urllib2.Request(self.home_url,headers=self.headers)
@@ -103,8 +131,29 @@ class connector(object):
 		
 		pat2=re.compile(r'<a\s*href="(.*?)"\s*title="发帖"')
 		url=url[:url.find('com/')+len('com/')]+pat2.findall(content)[0].replace('amp;','')
-	
 		return url
+	def sendreply(self,current_url,message):
+		req=urllib2.Request(current_url,headers=self.headers)
+		content=self.opener.open(req).read()
+		pat=re.compile(r'id="fastpostform"\s*action="([^\"]+?)"(?:[.\s\S]+?)name="formhash"\s*value="([^\"]+?)"')
+		result=pat.findall(content)[0]
+		res={}
+		if result!=[]:
+			
+			url=self.home_url[:self.home_url.find('com/')+len('com/')]+result[0].replace('amp;','')
+			para=urllib.urlencode({'formhash':result[1],
+						'message':message,
+						'replysubmit':'回复'})
+			req2=urllib2.Request(url,para)
+			res=self.opener.open(req2).read()
+			result_pat=re.compile('messagetext(?:[.\s\S]+?)<p>(.*?)</p>')
+			final_result=result_pat.findall(res)
+			if final_result==[]:
+			
+				return 'reply succeed'
+			return final_result[0]
+		return None
+		
 if __name__=='__main__':
 	#choice=source[random.randint(0,len(source)-1)]
 	#data['subject']='this is a test from %s'%choice

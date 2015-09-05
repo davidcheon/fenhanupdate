@@ -10,16 +10,18 @@ import test3
 class mygui(wx.Frame):
 	def __init__(self,headers,img):
 		wx.Frame.__init__(self,None,title='奋韩')
+		self.tiezi_selection=0
 		self.item=None
 		self.headers=headers
 		self.tmp=img.ConvertToBitmap()
-		self.SetSizeHintsSz((400,600),(400,600))
+		self.SetSizeHintsSz((500,600),(500,600))
 		panel=wx.Panel(self)
 		self.panel=panel
 		self.sitename_label=wx.StaticText(panel,label='website')
 		self.sitename=wx.TextCtrl(panel,value='http://bbs.icnkr.com/forum.php?mobile=1',style=wx.TE_READONLY)
 		self.username_label=wx.StaticText(panel,label='username')
 		self.username=wx.TextCtrl(panel)
+		self.username.SetFocus()
 		self.password_label=wx.StaticText(panel,label='password')
 		self.password=wx.TextCtrl(panel,style=wx.TE_PASSWORD)
 		self.loginbutton=wx.Button(panel,label='login')
@@ -42,12 +44,12 @@ class mygui(wx.Frame):
 		self.sendbutton.SetDefault()
 		self.sendbutton.Bind(wx.EVT_BUTTON,self.sendaction)
 		self.sendbutton.Disable()
-		self.tiezilist=wx.ListBox(panel,26,size=(150,100),pos=wx.DefaultPosition,choices=['a','b','c'],style=wx.LB_SINGLE)
+		self.tiezilist=wx.ListBox(panel,26,size=(150,100),pos=wx.DefaultPosition,choices=[],style=wx.LB_SINGLE)
 		self.tiezilist.Bind(wx.EVT_LISTBOX,self.tieziselection)
 		self.tiezicontent=wx.TextCtrl(panel,style=wx.TE_MULTILINE|wx.VSCROLL|wx.HSCROLL)
 		self.tiezireply=wx.TextCtrl(panel,style=wx.TE_MULTILINE|wx.VSCROLL)
-		self.tiezideletebutton=wx.Button(panel,label='delete')
-		self.tiezideletebutton.Bind(wx.EVT_BUTTON,self.deletetiezi)
+		self.tiezideletebutton=wx.Button(panel,label='refresh')
+		self.tiezideletebutton.Bind(wx.EVT_BUTTON,self.refreshtiezi)
 		self.tiezideletebutton.Disable()
 		self.tiezireplybutton=wx.Button(panel,label='send')
 		self.tiezireplybutton.Bind(wx.EVT_BUTTON,self.sendreply)
@@ -112,13 +114,34 @@ class mygui(wx.Frame):
 		self.connector=test3.connector(opener=opener,headers=headers,home_url=self.sitename.GetValue())
 		Publisher().subscribe(self.sendnewtieziresultdisplay,"sendnewtiezi")
 		Publisher().subscribe(self.loginresultdisplay,'login result')
+		Publisher().subscribe(self.mytiezilistdisplay,'mytiezilist')
+		Publisher().subscribe(self.tiezicontentdisplay,'tiezicontent')
+		Publisher().subscribe(self.sendtiezireplydisplay,'sendtiezireply')
 		#wx.StaticBitmap(parent=panel,bitmap=self.tmp)
 	def tieziselection(self,evt):
-		pass
-	def deletetiezi(self,evt):
-		pass
+		if evt.GetSelection()!=-1:
+			self.tiezi_selection=evt.GetSelection()
+		select_url=self.tiezis[self.tiezi_selection][0]
+		t=tiezicontentthread(self.connector,select_url)
+		t.setDaemon(True)
+		t.start()
+	def refreshtiezi(self,evt):
+		
+		t=getmytiezilistthread(self.connector)
+		t.setDaemon(1)
+		t.start()
 	def sendreply(self,evt):
-		pass
+		reply=str(self.tiezireply.GetValue()).strip()
+		if reply=='':
+			dlg=wx.MessageDialog(self.panel,'reply content can not be empty',caption='Message',style=wx.OK)
+			dlg.ShowModal()
+			dlg.Destroy()
+		else:
+			current_url=self.tiezis[self.tiezilist.GetSelection()][0]
+			message=str(self.tiezireply.GetValue()).strip()
+			t=sendreplythread(self.connector,current_url,message)
+			t.setDaemon(1)
+			t.start()
 	def loginaction(self,evt):
 		username=self.username.GetValue()
 		password=self.password.GetValue()
@@ -184,24 +207,90 @@ class mygui(wx.Frame):
 			t=sendnewtiezithread(self.connector,self.diyuname,subject,content,self.bankuainame)
 			t.setDaemon(True)
 			t.start()
+			
 			self.btn=evt.GetEventObject()
 			self.btn.Disable()
 			#t.join()
+	def sendtiezireplydisplay(self,msg):
+		if msg.data=='reply succeed':
+			showline='我 at now 说:\n\t%s\n---------------\n'%(self.tiezireply.GetValue())
+			self.tiezicontent.AppendText(showline)
+		dlg=wx.MessageDialog(self.panel,str(msg.data) if msg.data!=None else 'html code changed',caption='sendreply result',style=wx.OK)
+		dlg.ShowModal()
+		dlg.Destroy()
+	def tiezicontentdisplay(self,msg):
+		content=msg.data['content']
+		title=msg.data['title']
+		self.tiezicontent.Clear()
+		self.tiezicontent.AppendText('---------------%s-----------\n'%title)
+		for n in content:
+			showline='%s at %s 说:\n\t%s\n---------------\n'%('我' if n[0]==self.username.GetValue() else n[0],n[1].replace('&nbsp;',''),n[2].replace('<br />','').replace('\n','\n\t'))
+			self.tiezicontent.AppendText(showline)
+	def mytiezilistdisplay(self,msg):
+		self.tiezis=msg.data
+		self.tiezilist.Clear()
+		
+		for n in  msg.data:
+			showline='%s\t%s'%(n[1],n[2].replace('\n','\n\t'))
+			self.tiezilist.Append(showline)
+		self.tiezilist.SetSelection(self.tiezi_selection)
+		t=tiezicontentthread(self.connector,self.tiezis[self.tiezi_selection][0])
+		t.setDaemon(1)
+		t.start()
 	def loginresultdisplay(self,msg):
+		if msg.data[0]:
+			t=getmytiezilistthread(self.connector)
+			t.setDaemon(True)
+			t.start()
+			self.sendbutton.Enable()
+			self.tiezireplybutton.Enable()
+			self.tiezideletebutton.Enable()
+			
 		dlg=wx.MessageDialog(self.panel,str(msg.data[1]),caption='login result',style=wx.OK)
 		dlg.ShowModal()
 		dlg.Destroy()
 		self.loginbt.Enable()
-		if msg.data[0]:
-			self.sendbutton.Enable()
-			self.tiezireplybutton.Enable()
-			self.tiezideletebutton.Enable()
+		
 	def sendnewtieziresultdisplay(self,msg):
-		dlg=wx.MessageDialog(self.panel,msg.data,caption='Message',style=wx.OK)
+		if msg.data[0]:
+			self.tiezis.insert(0,[msg.data[2],self.subject.GetValue(),'now'])
+			showline='%s\t'%(self.tiezis[0][1])
+			self.tiezilist.InsertItems([showline],0)
+		dlg=wx.MessageDialog(self.panel,msg.data[1],caption='Message',style=wx.OK)
 		dlg.ShowModal()
 		self.btn.Enable()
 		dlg.Destroy()
-class loginthread(threading.Thread)	:
+class sendreplythread(threading.Thread)	:
+	def __init__(self,connector,current_url,message):
+		threading.Thread.__init__(self)
+		self.connector=connector
+		self.current_url=current_url
+		self.message=message
+	def run(self):
+		contents=self.connector.sendreply(self.current_url,self.message)
+		wx.CallAfter(self.postdata,contents)
+	def postdata(self,result):
+		Publisher.sendMessage(topic='sendtiezireply',data=result)
+class tiezicontentthread(threading.Thread):
+	def __init__(self,connector,url):
+		threading.Thread.__init__(self)
+		self.connector=connector
+		self.url=url
+	def run(self):
+		contents=self.connector.gettiezicontent(self.url)
+		wx.CallAfter(self.postdata,contents)
+	def postdata(self,result):
+		Publisher.sendMessage(topic='tiezicontent',data=result)
+class getmytiezilistthread(threading.Thread):
+	def __init__(self,connector):
+		threading.Thread.__init__(self)
+		self.connector=connector
+	def run(self):
+		mytiezilist=self.connector.getmytiezilist()
+		wx.CallAfter(self.postdata,mytiezilist)
+	def postdata(self,result):
+		Publisher.sendMessage(topic='mytiezilist',data=result)
+class loginthread(threading.Thread):
 	def __init__(self,connector,username,password):
 		threading.Thread.__init__(self)
 		self.connector=connector
