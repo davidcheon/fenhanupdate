@@ -5,8 +5,9 @@ from wx.lib.pubsub import Publisher
 import cookielib
 import urllib2
 import threading
-import time
+import time,sys
 import test3
+import mygauge
 class mygui(wx.Frame):
 	def __init__(self,headers,img):
 		wx.Frame.__init__(self,None,title='奋韩')
@@ -17,6 +18,9 @@ class mygui(wx.Frame):
 		self.SetSizeHintsSz((500,600),(500,600))
 		panel=wx.Panel(self)
 		self.panel=panel
+		self.Bind(wx.EVT_CLOSE,self.closeaction)
+		self.status_label=wx.StaticText(panel,label='status')
+		self.gaua=wx.Gauge(panel,-1,20,pos=(220,85),size=(250,20))
 		self.sitename_label=wx.StaticText(panel,label='website')
 		self.sitename=wx.TextCtrl(panel,value='http://bbs.icnkr.com/forum.php?mobile=1',style=wx.TE_READONLY)
 		self.username_label=wx.StaticText(panel,label='username')
@@ -99,6 +103,7 @@ class mygui(wx.Frame):
 		self.hboxext1=wx.BoxSizer()
 		self.hboxext1.Add(self.loginbutton,proportion=1,border=0)
 		self.hboxext1.Add(self.exitbutton,proportion=1,border=0)
+		self.hboxext1.Add(self.status_label,proportion=1,border=0)
 		self.vbox1.Add(self.hboxext1,border=5)
 		self.vbox1.Add(self.hbox4,border=5)
 		self.vbox1.Add(self.hbox5,border=5)
@@ -117,16 +122,25 @@ class mygui(wx.Frame):
 		Publisher().subscribe(self.mytiezilistdisplay,'mytiezilist')
 		Publisher().subscribe(self.tiezicontentdisplay,'tiezicontent')
 		Publisher().subscribe(self.sendtiezireplydisplay,'sendtiezireply')
+		Publisher().subscribe(self.sendstatuscountdisplay,'sendstatuscount')
 		#wx.StaticBitmap(parent=panel,bitmap=self.tmp)
 	def tieziselection(self,evt):
+		self.ust_tieziselection=updatestatusthread()
+		self.ust_tieziselection.start()
 		if evt.GetSelection()!=-1:
 			self.tiezi_selection=evt.GetSelection()
 		select_url=self.tiezis[self.tiezi_selection][0]
 		t=tiezicontentthread(self.connector,select_url)
 		t.setDaemon(True)
 		t.start()
+	def closeaction(self,evt):
+		ret=wx.MessageBox('exit?','confirm',wx.OK|wx.CANCEL)
+		if ret==wx.OK:
+			sys.exit(0)
+			#evt.Skip()
 	def refreshtiezi(self,evt):
-		
+		self.ust_refresh2=updatestatusthread()
+		self.ust_refresh2.start()
 		t=getmytiezilistthread(self.connector)
 		t.setDaemon(1)
 		t.start()
@@ -149,13 +163,16 @@ class mygui(wx.Frame):
 			dlg=wx.MessageDialog(self.panel,'please fill username or password',caption='Message',style=wx.OK)
 			dlg.ShowModal()
 			dlg.Destroy()
+		self.ust_login=updatestatusthread()
+		self.ust_login.start()
 		lt=loginthread(self.connector,username,password)
 		lt.setDaemon(True)
 		lt.start()
 		self.loginbt=evt.GetEventObject()
 		self.loginbt.Disable()
 	def exitaction(self,evt):
-		self.Destroy()
+		self.closeaction(self)
+	
 	def selectbankuai(self,evt):
 		self.item=evt.GetSelection()
 		self.diyu_choice.Clear()
@@ -188,6 +205,8 @@ class mygui(wx.Frame):
 			dlg.ShowModal()
 			dlg.Destroy()
 		else:
+		#	self.ust_sendnewtiezi=updatestatusthread()
+		#	self.ust_sendnewtiezi.start()
 			if self.item==0:
 				test=[f for f in xrange(192,209)]
 				test.append(291)
@@ -211,6 +230,8 @@ class mygui(wx.Frame):
 			self.btn=evt.GetEventObject()
 			self.btn.Disable()
 			#t.join()
+	def sendstatuscountdisplay(self,msg):
+		self.gaua.SetValue(int(msg.data))
 	def sendtiezireplydisplay(self,msg):
 		if msg.data=='reply succeed':
 			showline='我 at now 说:\n\t%s\n---------------\n'%(self.tiezireply.GetValue())
@@ -218,7 +239,19 @@ class mygui(wx.Frame):
 		dlg=wx.MessageDialog(self.panel,str(msg.data) if msg.data!=None else 'html code changed',caption='sendreply result',style=wx.OK)
 		dlg.ShowModal()
 		dlg.Destroy()
+	
 	def tiezicontentdisplay(self,msg):
+		self.ust_tieziselection2.stop()
+		if self.__dict__.has_key('ust_tieziselection'):
+			self.ust_tieziselection.stop()
+		if self.__dict__.has_key('ust_refresh1'):
+			self.ust_refresh1.stop()
+		if self.__dict__.has_key('ust_refresh2'):
+			self.ust_refresh2.stop()
+		if self.__dict__.has_key('ust'):
+			self.ust.stop()
+		self.gaua.SetValue(0)
+		
 		content=msg.data['content']
 		title=msg.data['title']
 		self.tiezicontent.Clear()
@@ -227,6 +260,11 @@ class mygui(wx.Frame):
 			showline='%s at %s 说:\n\t%s\n---------------\n'%('我' if n[0]==self.username.GetValue() else n[0],n[1].replace('&nbsp;',''),n[2].replace('<br />','').replace('\n','\n\t'))
 			self.tiezicontent.AppendText(showline)
 	def mytiezilistdisplay(self,msg):
+		if self.__dict__.has_key('ust_refresh1'):
+			self.ust_refresh1.stop()
+		if self.__dict__.has_key('ust_refresh2'):
+			self.ust_refresh2.stop()
+		self.gaua.SetValue(0)
 		self.tiezis=msg.data
 		self.tiezilist.Clear()
 		
@@ -234,11 +272,18 @@ class mygui(wx.Frame):
 			showline='%s\t%s'%(n[1],n[2].replace('\n','\n\t'))
 			self.tiezilist.Append(showline)
 		self.tiezilist.SetSelection(self.tiezi_selection)
+		self.ust_tieziselection2=updatestatusthread()
+		self.ust_tieziselection2.start()
 		t=tiezicontentthread(self.connector,self.tiezis[self.tiezi_selection][0])
 		t.setDaemon(1)
 		t.start()
 	def loginresultdisplay(self,msg):
+		self.ust_login.stop()
+		self.gaua.SetValue(0)
 		if msg.data[0]:
+			self.loginbutton.Disable()
+			self.ust_refresh1=updatestatusthread()
+			self.ust_refresh1.start()
 			t=getmytiezilistthread(self.connector)
 			t.setDaemon(True)
 			t.start()
@@ -252,6 +297,7 @@ class mygui(wx.Frame):
 		self.loginbt.Enable()
 		
 	def sendnewtieziresultdisplay(self,msg):
+		self.ust_sendnewtiezi.stop()
 		if msg.data[0]:
 			self.tiezis.insert(0,[msg.data[2],self.subject.GetValue(),'now'])
 			showline='%s\t'%(self.tiezis[0][1])
@@ -260,6 +306,24 @@ class mygui(wx.Frame):
 		dlg.ShowModal()
 		self.btn.Enable()
 		dlg.Destroy()
+class updatestatusthread(threading.Thread):
+	def __init__(self):
+		threading.Thread.__init__(self)
+		self.flag=True
+		self.count=0
+	def run(self):
+		while self.flag:
+			self.count+=1
+			time.sleep(.2)
+			if self.count==20:
+				self.count=0
+			if self.flag:
+				wx.CallAfter(self.postdata,self.count)
+	def stop(self):
+		self.flag=False
+	
+	def postdata(self,count):
+		Publisher.sendMessage(topic='sendstatuscount',data=count)
 class sendreplythread(threading.Thread)	:
 	def __init__(self,connector,current_url,message):
 		threading.Thread.__init__(self)
