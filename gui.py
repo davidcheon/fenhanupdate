@@ -151,6 +151,8 @@ class mygui(wx.Frame):
 			dlg.ShowModal()
 			dlg.Destroy()
 		else:
+			self.ust_sendreply=updatestatusthread()
+			self.ust_sendreply.start()
 			current_url=self.tiezis[self.tiezilist.GetSelection()][0]
 			message=str(self.tiezireply.GetValue()).strip()
 			t=sendreplythread(self.connector,current_url,message)
@@ -205,8 +207,7 @@ class mygui(wx.Frame):
 			dlg.ShowModal()
 			dlg.Destroy()
 		else:
-		#	self.ust_sendnewtiezi=updatestatusthread()
-		#	self.ust_sendnewtiezi.start()
+		
 			if self.item==0:
 				test=[f for f in xrange(192,209)]
 				test.append(291)
@@ -223,6 +224,8 @@ class mygui(wx.Frame):
 			
 			#test3.autosend(req_url,opener,username,password,self.diyuname,subject,content,self.headers,
 #sitename,self.bankuainame)
+			self.ust_sendnewtiezi=updatestatusthread()
+			self.ust_sendnewtiezi.start()
 			t=sendnewtiezithread(self.connector,self.diyuname,subject,content,self.bankuainame)
 			t.setDaemon(True)
 			t.start()
@@ -233,6 +236,8 @@ class mygui(wx.Frame):
 	def sendstatuscountdisplay(self,msg):
 		self.gaua.SetValue(int(msg.data))
 	def sendtiezireplydisplay(self,msg):
+		self.ust_sendreply.stop()
+		self.gaua.SetValue(0)
 		if msg.data=='reply succeed':
 			showline='我 at now 说:\n\t%s\n---------------\n'%(self.tiezireply.GetValue())
 			self.tiezicontent.AppendText(showline)
@@ -298,6 +303,7 @@ class mygui(wx.Frame):
 		
 	def sendnewtieziresultdisplay(self,msg):
 		self.ust_sendnewtiezi.stop()
+		self.gaua.SetValue(0)
 		if msg.data[0]:
 			self.tiezis.insert(0,[msg.data[2],self.subject.GetValue(),'now'])
 			showline='%s\t'%(self.tiezis[0][1])
@@ -389,3 +395,4 @@ if __name__=='__main__':
 	mg=mygui(headers,img)
 	mg.Show()
 	app.MainLoop()
+
