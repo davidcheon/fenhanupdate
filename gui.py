@@ -21,6 +21,8 @@ class mygui(wx.Frame):
 		self.Bind(wx.EVT_CLOSE,self.closeaction)
 		self.status_label=wx.StaticText(panel,label='status')
 		self.gaua=wx.Gauge(panel,-1,20,pos=(220,85),size=(250,20))
+		self.gaua.SetBezelFace(3)
+		self.gaua.SetShadowWidth(3)
 		self.sitename_label=wx.StaticText(panel,label='website')
 		self.sitename=wx.TextCtrl(panel,value='http://bbs.icnkr.com/forum.php?mobile=1',style=wx.TE_READONLY)
 		self.username_label=wx.StaticText(panel,label='username')
